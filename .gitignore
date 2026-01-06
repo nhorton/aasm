@@ -19,3 +19,4 @@ alto
 .bundle
 tags
 tmp
+vendor/bundle

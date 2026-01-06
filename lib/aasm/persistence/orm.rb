@@ -135,11 +135,15 @@ module AASM
             super
           end
 
-          if success && !(event.options.keys & [:after_commit, :after_all_commits]).empty?
+          if success && (!(event.options.keys & [:after_commit, :after_all_commits]).empty? || event.has_transition_after_commit?(self))
             aasm_execute_after_commit do
+              event.fire_transition_after_commit_callbacks(self, *args)
               event.fire_callbacks(:after_commit, self, *args)
               event.fire_global_callbacks(:after_all_commits, self, *args)
             end
+          else
+            # Clean up transition tracking if we're not going to fire after_commit callbacks
+            event.cleanup_transition_tracking(self) if success
           end
 
           success

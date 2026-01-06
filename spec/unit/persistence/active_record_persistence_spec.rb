@@ -651,6 +651,85 @@ if defined?(ActiveRecord)
         end
       end
 
+      describe "transition-level after_commit callback" do
+        it "should fire transition :after_commit if transaction was successful" do
+          validator = ValidatorWithTransitionAfterCommit.create(:name => 'name')
+          expect(validator).to be_sleeping
+          expect(validator.transition_after_commit_value).to be_nil
+
+          validator.run!
+          expect(validator).to be_running
+          expect(validator.transition_after_commit_value).to eq("transition_committed_run")
+        end
+
+        it "should fire transition :after_commit with different transitions" do
+          validator = ValidatorWithTransitionAfterCommit.create(:name => 'name')
+          expect(validator).to be_sleeping
+
+          validator.run!
+          expect(validator).to be_running
+          expect(validator.transition_after_commit_value).to eq("transition_committed_run")
+
+          validator.fail!
+          expect(validator).to be_failed
+          expect(validator.transition_after_commit_value).to eq("transition_committed_fail")
+        end
+
+        it "should fire transition :after_commit with block callback" do
+          validator = ValidatorWithTransitionAfterCommit.create(:name => 'name')
+          validator.run!
+          expect(validator).to be_running
+
+          validator.sleep!("test_arg")
+          expect(validator).to be_sleeping
+          expect(validator.transition_after_commit_value).to eq("slept with test_arg")
+        end
+
+        it "should not fire transition :after_commit if not persisting" do
+          validator = ValidatorWithTransitionAfterCommit.create(:name => 'name')
+          expect(validator).to be_sleeping
+          expect(validator.transition_after_commit_value).to be_nil
+
+          validator.run
+          expect(validator).to be_running
+          expect(validator.transition_after_commit_value).to be_nil
+        end
+
+        context "nested transaction" do
+          it "should fire transition :after_commit if root transaction was successful" do
+            validator = ValidatorWithTransitionAfterCommit.create(:name => 'name')
+            expect(validator).to be_sleeping
+            expect(validator.transition_after_commit_value).to be_nil
+
+            validator.transaction do
+              validator.run!
+              expect(validator.transition_after_commit_value).to be_nil
+              expect(validator).to be_running
+            end
+
+            expect(validator.transition_after_commit_value).to eq("transition_committed_run")
+            expect(validator.reload).to be_running
+          end
+
+          it "should not fire transition :after_commit if root transaction failed" do
+            validator = ValidatorWithTransitionAfterCommit.create(:name => 'name')
+            expect(validator).to be_sleeping
+            expect(validator.transition_after_commit_value).to be_nil
+
+            validator.transaction do
+              validator.run!
+              expect(validator.transition_after_commit_value).to be_nil
+              expect(validator).to be_running
+
+              raise ActiveRecord::Rollback, "failed on purpose"
+            end
+
+            expect(validator.transition_after_commit_value).to be_nil
+            expect(validator.reload).to be_sleeping
+          end
+        end
+      end
+
       describe 'callbacks for the new DSL' do
 
         it "be called in order" do

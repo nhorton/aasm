@@ -130,3 +130,41 @@ class MultipleValidator < ActiveRecord::Base
     raise StandardError.new('failed on purpose')
   end
 end
+
+class ValidatorWithTransitionAfterCommit < ActiveRecord::Base
+  self.table_name = 'validators'
+  
+  attr_accessor :transition_after_commit_value
+  
+  validates_presence_of :name
+
+  include AASM
+
+  aasm :column => :status, :whiny_persistence => true do
+    state :sleeping, :initial => true
+    state :running
+    state :failed
+
+    event :run do
+      transitions :to => :running, :from => :sleeping, :after_commit => :transition_after_commit_callback
+    end
+
+    event :fail do
+      transitions :to => :failed, :from => [:sleeping, :running], :after_commit => :transition_fail_callback
+    end
+
+    event :sleep do
+      transitions :to => :sleeping, :from => :running, :after_commit => proc { |name|
+        self.transition_after_commit_value = "slept with #{name}"
+      }
+    end
+  end
+
+  def transition_after_commit_callback
+    self.transition_after_commit_value = "transition_committed_run"
+  end
+
+  def transition_fail_callback
+    self.transition_after_commit_value = "transition_committed_fail"
+  end
+end
