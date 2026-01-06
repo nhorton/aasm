@@ -81,7 +81,27 @@ module AASM::Core
       from_state = obj.aasm(state_machine.name).current_state
       transition = @valid_transitions[obj.object_id][from_state]
       transition.invoke_success_callbacks(obj, *args) if transition
+      # Don't delete @valid_transitions yet - we need it for after_commit callbacks
+    end
+
+    def fire_transition_after_commit_callbacks(obj, *args)
+      from_state = obj.aasm(state_machine.name).current_state
+      transition = @valid_transitions[obj.object_id][from_state]
+      if transition && transition.has_after_commit?
+        transition.invoke_after_commit_callbacks(obj, *args)
+      end
+      # Clean up @valid_transitions after after_commit callbacks are fired
       @valid_transitions.delete(obj.object_id)
+    end
+
+    def cleanup_transition_tracking(obj)
+      @valid_transitions.delete(obj.object_id)
+    end
+
+    def has_transition_after_commit?(obj)
+      from_state = obj.aasm(state_machine.name).current_state
+      transition = @valid_transitions[obj.object_id][from_state]
+      transition && transition.has_after_commit?
     end
 
     def ==(event)

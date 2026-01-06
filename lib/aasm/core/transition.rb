@@ -8,7 +8,7 @@ module AASM::Core
     alias_method :options, :opts
 
     def initialize(event, opts, &block)
-      add_options_from_dsl(opts, [:on_transition, :guard, :after, :success], &block) if block
+      add_options_from_dsl(opts, [:on_transition, :guard, :after, :success, :after_commit], &block) if block
 
       @event = event
       @from = opts[:from]
@@ -26,6 +26,9 @@ module AASM::Core
 
       @success = Array(opts[:success])
       @success = @success[0] if @success.size == 1
+
+      @after_commit = Array(opts[:after_commit])
+      @after_commit = @after_commit[0] if @after_commit.size == 1
 
       @opts = opts
     end
@@ -59,6 +62,14 @@ module AASM::Core
 
     def invoke_success_callbacks(obj, *args)
       _fire_callbacks(@success, obj, args)
+    end
+
+    def invoke_after_commit_callbacks(obj, *args)
+      _fire_callbacks(@after_commit, obj, args)
+    end
+
+    def has_after_commit?
+      @after_commit && (@after_commit.is_a?(Array) ? !@after_commit.empty? : true)
     end
 
     private
