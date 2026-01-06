@@ -1019,8 +1019,8 @@ There are currently 3 transactional callbacks that can be handled on the event, 
   event           before_all_transactions
   event           before_transaction
   event           aasm_fire_event (within transaction)
+  transition      after_commit (if event successful)
   event           after_commit (if event successful)
-  transition      after_commit (if event successful, after event callbacks)
   event           after_transaction
   event           after_all_transactions
 ```
@@ -1087,7 +1087,7 @@ class Job < ActiveRecord::Base
 end
 ```
 
-Transition-level `after_commit` callbacks are fired after event-level callbacks
+Transition-level `after_commit` callbacks are fired before event-level callbacks
 and support both method names and blocks.
 
 Note that the following will not run the `after_commit` callbacks because
