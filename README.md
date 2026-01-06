@@ -290,6 +290,7 @@ end
 ```
 
 Use event's `after_commit` callback if it should be fired after database update.
+You can also use `after_commit` on individual transitions for more granular control.
 
 #### The current event triggered
 
@@ -1019,6 +1020,7 @@ There are currently 3 transactional callbacks that can be handled on the event, 
   event           before_transaction
   event           aasm_fire_event (within transaction)
   event           after_commit (if event successful)
+  transition      after_commit (if event successful, after event callbacks)
   event           after_transaction
   event           after_all_transactions
 ```
@@ -1047,6 +1049,46 @@ end
 job = Job.where(state: 'sleeping').first!
 job.run! # Saves the model and triggers the after_commit callback
 ```
+
+You can also define `after_commit` callbacks on individual transitions within an event.
+This is useful when different transitions need different after-commit behavior:
+
+```ruby
+class Job < ActiveRecord::Base
+  include AASM
+
+  aasm do
+    state :sleeping, initial: true
+    state :running
+    state :completed
+    state :failed
+
+    event :run do
+      transitions from: :sleeping, to: :running, after_commit: :log_started
+    end
+
+    event :finish do
+      transitions from: :running, to: :completed, after_commit: :notify_completion
+      transitions from: :running, to: :failed, after_commit: :notify_failure
+    end
+  end
+
+  def log_started
+    Logger.info "Job #{id} started"
+  end
+
+  def notify_completion
+    NotificationService.send_success(self)
+  end
+
+  def notify_failure
+    NotificationService.send_failure(self)
+  end
+end
+```
+
+Transition-level `after_commit` callbacks are fired after event-level callbacks
+and support both method names and blocks.
 
 Note that the following will not run the `after_commit` callbacks because
 the auto-save method is not used:
